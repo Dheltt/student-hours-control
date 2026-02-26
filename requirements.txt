@@ -1,0 +1,8 @@
+PySide6
+mysql-connector-python
+pydantic-settings
+PyMySQL
+reportlab
+openpyxl
+matplotlib
+SQLAlchemy
