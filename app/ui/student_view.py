@@ -109,15 +109,8 @@ class StudentView(QWidget):
 
         # Primario (Registrar)
         self.add_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4f46e5;
-                color: white;
-                border-radius: 10px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #4338ca;
-            }
+            QPushButton { background-color: #10b981; color: white; border-radius: 10px; padding: 8px 16px; }
+            QPushButton:hover { background-color: #059669; }
         """)
 
         # Secundario (Editar)

@@ -9,6 +9,10 @@ from PySide6.QtCore import Qt, QDate
 from app.services.student_service import StudentService
 from app.services.activity_service import ActivityService
 from app.core.database import get_connection
+from PySide6.QtWidgets import QCompleter
+from PySide6.QtCore import QStringListModel
+from mysql.connector import Error
+from datetime import datetime
 
 
 class RegistroView(QWidget):
@@ -57,7 +61,7 @@ class RegistroView(QWidget):
         self.actividad_combo = QComboBox()
         self.alumno_combo.setMinimumWidth(250)
         self.actividad_combo.setMinimumWidth(250)
-        # 🎨 Estilo claro para ComboBox
+        # Estilo claro para ComboBox
         combo_style = """
         QComboBox {
             background-color: #ffffff;
@@ -185,8 +189,11 @@ class RegistroView(QWidget):
     # REFRESH
     # ==========================
     def refresh_students(self):
-        self.alumno_combo.clear()
-        self.alumno_combo.addItems([f"{s[1]}" for s in StudentService.list_students()])
+        students = StudentService.list_students()
+        # Mostrar: "ID - Nombre"
+        student_list = [f"{s[0]} - {s[1]}" for s in students]
+
+        self.setup_searchable_combobox(self.alumno_combo, student_list)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -194,8 +201,11 @@ class RegistroView(QWidget):
         self.refresh_activities()
 
     def refresh_activities(self):
-        self.actividad_combo.clear()
-        self.actividad_combo.addItems([a[1] for a in ActivityService.get_all_activities()])
+        activities = ActivityService.get_all_activities()
+        # Mostrar: "ID - Nombre actividad"
+        activity_list = [f"{a[0]} - {a[1]}" for a in activities]
+
+        self.setup_searchable_combobox(self.actividad_combo, activity_list)
 
     def refresh_all(self):
         self.refresh_table()
@@ -241,6 +251,51 @@ class RegistroView(QWidget):
         self.temp_records.append((alumno, actividad, horas))
         self.refresh_all()
 
+    def setup_searchable_combobox(self, combo, items):
+
+        combo.setEditable(True)
+        combo.clear()
+        combo.addItems(items)
+
+        # Estilo para que NO se vea negro
+        combo.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #e1e4e8;
+                border-radius: 10px;
+                padding: 6px 10px;
+                color: #111827;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                selection-background-color: #dbeafe;
+                selection-color: #1e3a8a;
+            }
+            QLineEdit {
+                background-color: #ffffff;
+                color: #111827;
+                border: none;
+            }
+        """)
+
+        #COMPLETER CORRECTO
+        completer = QCompleter(items, combo)
+        completer.setFilterMode(Qt.MatchContains)  # Busca dentro del texto
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setCompletionMode(QCompleter.PopupCompletion)
+        popup = completer.popup()
+        popup.setStyleSheet("""
+            QListView {
+                background-color: #ffffff;
+                color: #111827;
+                border: 1px solid #e1e4e8;
+            }
+            QListView::item:selected {
+                background-color: #dbeafe;
+                color: #1e3a8a;
+            }
+        """)
+        combo.setCompleter(completer)
     def edit_temp_record(self):
         row = self.table.currentRow()
         if row < 0:
@@ -292,37 +347,45 @@ class RegistroView(QWidget):
             self.refresh_all()
 
     def save_records(self):
+
         if not self.temp_records:
-            QMessageBox.warning(self, "Atención", "No hay registros para guardar.")
+            QMessageBox.information(self, "Información", "No hay registros para guardar.")
             return
 
-        confirm = QMessageBox.question(
-            self, "Confirmar guardado",
-            "¿Guardar registros del día en la base de datos?",
-            QMessageBox.Yes | QMessageBox.No
-        )
+        try:
+            with get_connection() as connection:
 
-        if confirm == QMessageBox.No:
-            return
+                if not connection:
+                    QMessageBox.critical(self, "Error", "No hay conexión a la base de datos.")
+                    return
 
-        connection = get_connection()
-        cursor = connection.cursor()
+                cursor = connection.cursor()
 
-        for alumno_text, actividad_nombre, horas in self.temp_records:
-            numero_control = alumno_text.split("(")[-1][:-1]
-            activity_list = ActivityService.get_all_activities()
-            id_actividad = next((a[0] for a in activity_list if a[1] == actividad_nombre), None)
+                for alumno_texto, actividad_texto, horas in self.temp_records:
 
-            if id_actividad:
-                cursor.execute(
-                    "INSERT INTO registro_actividades (numero_control, id_actividad, fecha, horas) VALUES (%s,%s,%s,%s)",
-                    (numero_control, id_actividad, QDate.currentDate().toPython(), horas)
-                )
+                    # Extraer valores desde "ID - Nombre"
+                    numero_control = alumno_texto.split(" - ")[0]
+                    id_actividad = actividad_texto.split(" - ")[0]
 
-        connection.commit()
-        cursor.close()
-        connection.close()
+                    fecha_actual = datetime.now().date()
 
-        self.temp_records.clear()
-        self.refresh_all()
-        QMessageBox.information(self, "Éxito", "Registros guardados correctamente.")
+                    query = """
+                        INSERT INTO registro_actividades
+                        (numero_control, id_actividad, fecha, horas)
+                        VALUES (%s, %s, %s, %s)
+                    """
+
+                    cursor.execute(query, (numero_control, id_actividad,fecha_actual, horas))
+
+                connection.commit()
+
+                QMessageBox.information(self, "Éxito", "Registros guardados correctamente.")
+
+                self.temp_records.clear()
+                self.refresh_all()
+
+        except Error as e:
+            QMessageBox.critical(self, "Error BD", str(e))
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error inesperado", str(e))

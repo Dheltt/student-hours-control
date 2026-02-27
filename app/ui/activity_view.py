@@ -156,13 +156,13 @@ class ActividadView(QWidget):
         # CRUD Actividades
         self.btn_add.setStyleSheet("""
             QPushButton {
-                background-color: #4f46e5;
+                background-color: #10b981;
                 color:white;
                 border-radius: 10px;
                 padding: 6px 12px;
             }
             QPushButton:hover {
-                background-color: #4338ca;
+                background-color: #059669;
             }
         """)
 
