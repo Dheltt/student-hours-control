@@ -55,7 +55,8 @@ class RegistroView(QWidget):
 
         self.alumno_combo = QComboBox()
         self.actividad_combo = QComboBox()
-
+        self.alumno_combo.setMinimumWidth(250)
+        self.actividad_combo.setMinimumWidth(250)
         # 🎨 Estilo claro para ComboBox
         combo_style = """
         QComboBox {
@@ -186,6 +187,11 @@ class RegistroView(QWidget):
     def refresh_students(self):
         self.alumno_combo.clear()
         self.alumno_combo.addItems([f"{s[1]}" for s in StudentService.list_students()])
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.refresh_students()
+        self.refresh_activities()
 
     def refresh_activities(self):
         self.actividad_combo.clear()

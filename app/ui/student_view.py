@@ -7,6 +7,8 @@ from PySide6.QtCore import Qt
 from app.services.student_service import StudentService
 from app.services.activity_service import ActivityService
 
+from PySide6.QtGui import QIntValidator, QRegularExpressionValidator
+from PySide6.QtCore import QRegularExpression
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
@@ -65,15 +67,27 @@ class StudentView(QWidget):
 
         self.numero_control_input = QLineEdit()
         self.numero_control_input.setPlaceholderText("Número de control")
+        self.numero_control_input.setMaxLength(20)
+        self.numero_control_input.setValidator(QIntValidator())
 
         self.nombre_input = QLineEdit()
         self.nombre_input.setPlaceholderText("Nombre completo")
+        regex_nombre = QRegularExpression("^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$")
+        validator_nombre = QRegularExpressionValidator(regex_nombre)
+        self.nombre_input.setValidator(validator_nombre)
 
         self.correo_input = QLineEdit()
         self.correo_input.setPlaceholderText("Correo")
+        regex_correo = QRegularExpression(r"^[\w\.-]+@[\w\.-]+\.\w+$")
+        validator_correo = QRegularExpressionValidator(regex_correo)
+        self.correo_input.setValidator(validator_correo)
 
         self.telefono_input = QLineEdit()
         self.telefono_input.setPlaceholderText("Teléfono")
+        regex_telefono = QRegularExpression(r"^\d{10,15}$")
+        validator_telefono = QRegularExpressionValidator(regex_telefono)
+        self.telefono_input.setValidator(validator_telefono)
+        self.telefono_input.setMaxLength(15)
 
         form_layout.addWidget(self.numero_control_input)
         form_layout.addWidget(self.nombre_input)
@@ -310,7 +324,7 @@ class StudentView(QWidget):
         if not numero or not nombre:
             QMessageBox.warning(self, "Validación", "Número y nombre son obligatorios.")
             return
-
+        """
         confirm = QMessageBox.question(
             self,
             "Confirmar registro",
@@ -320,7 +334,22 @@ class StudentView(QWidget):
 
         if confirm == QMessageBox.No:
             return
+        """
+        if not numero or not nombre:
+            QMessageBox.warning(self, "Validación", "Número y nombre son obligatorios.")
+            return
 
+        if len(numero) > 20:
+            QMessageBox.warning(self, "Validación", "Número de control demasiado largo.")
+            return
+
+        if correo and "@" not in correo:
+            QMessageBox.warning(self, "Validación", "Correo inválido.")
+            return
+
+        if telefono and not telefono.isdigit():
+            QMessageBox.warning(self, "Validación", "Teléfono inválido.")
+            return
         StudentService.add_student(numero, nombre, correo, telefono)
         self.refresh_all()
 

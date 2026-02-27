@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6 import QtCore
+from PySide6.QtGui import QIntValidator, QRegularExpressionValidator
+from PySide6.QtCore import QRegularExpression
 QtCore.qInstallMessageHandler(lambda msg_type, context, message: None)
 
 from datetime import datetime, timedelta
@@ -58,6 +60,9 @@ class ActividadView(QWidget):
 
         self.nombre_input = QLineEdit()
         self.nombre_input.setPlaceholderText("Nombre actividad")
+        regex_nombre = QRegularExpression("^[A-Za-zÁÉÍÓÚáéíóúÑñ ]+$")
+        validator_nombre = QRegularExpressionValidator(regex_nombre)
+        self.nombre_input.setValidator(validator_nombre)
 
         self.btn_add = QPushButton("Agregar")
         self.btn_update = QPushButton("Actualizar")
@@ -353,7 +358,7 @@ class ActividadView(QWidget):
                 self.show_light_message("Validación", "El nombre no puede estar vacío.", QMessageBox.Warning)
                 return
 
-            ActivityService.create_activity(nombre)
+            ActivityService.add_activity(nombre)
             self.refresh_crud()
             self.show_light_message("Éxito", "Actividad agregada correctamente.", QMessageBox.Information)
         except Exception as e:
