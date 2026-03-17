@@ -20,6 +20,7 @@ class RegistroView(QWidget):
         super().__init__()
 
         self.temp_records = []  # Lista temporal de registros del día
+        self.all_students = []  # 🔥 lista base para filtrado
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(30, 30, 30, 30)
@@ -57,11 +58,49 @@ class RegistroView(QWidget):
         form_layout = QHBoxLayout()
         form_layout.setSpacing(15)
 
-        self.alumno_combo = QComboBox()
+        # 🔥 NUEVO: ALUMNOS (MULTI SELECT + SEARCH)
+        from PySide6.QtWidgets import QLineEdit, QListWidget
+
+        self.alumno_input = QLineEdit()
+        self.alumno_input.setPlaceholderText("Buscar alumno por nombre o número de control...")
+
+        self.alumno_list = QListWidget()
+        self.alumno_list.setSelectionMode(QListWidget.MultiSelection)
+
+        self.alumno_input.setMinimumWidth(250)
+        self.alumno_list.setMinimumWidth(250)
+        self.alumno_list.setMaximumHeight(120)
+
+        self.alumno_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #ffffff;
+                border: 1px solid #e1e4e8;
+                border-radius: 10px;
+                padding: 6px 10px;
+                color: #111827;
+            }
+        """)
+
+        self.alumno_list.setStyleSheet("""
+            QListWidget {
+                background-color: #ffffff;
+                border: 1px solid #e1e4e8;
+                border-radius: 10px;
+            }
+            QListWidget::item:selected {
+                background-color: #dbeafe;
+                color: #1e3a8a;
+            }
+        """)
+
+        alumno_layout = QVBoxLayout()
+        alumno_layout.addWidget(self.alumno_input)
+        alumno_layout.addWidget(self.alumno_list)
+
+        # 🔹 Actividades (se mantiene igual)
         self.actividad_combo = QComboBox()
-        self.alumno_combo.setMinimumWidth(250)
         self.actividad_combo.setMinimumWidth(250)
-        # Estilo claro para ComboBox
+
         combo_style = """
         QComboBox {
             background-color: #ffffff;
@@ -75,15 +114,16 @@ class RegistroView(QWidget):
             selection-color: #1e3a8a;
         }
         """
-        self.alumno_combo.setStyleSheet(combo_style)
         self.actividad_combo.setStyleSheet(combo_style)
 
+        # 🔹 Horas
         self.horas_spin = QSpinBox()
         self.horas_spin.setRange(1, 24)
         self.horas_spin.setValue(1)
 
+        # Layout form
         form_layout.addWidget(QLabel("Alumno"))
-        form_layout.addWidget(self.alumno_combo)
+        form_layout.addLayout(alumno_layout)
         form_layout.addWidget(QLabel("Actividad"))
         form_layout.addWidget(self.actividad_combo)
         form_layout.addWidget(QLabel("Horas"))
@@ -97,32 +137,25 @@ class RegistroView(QWidget):
         button_layout = QHBoxLayout()
 
         self.add_button = QPushButton("Agregar")
-        self.edit_button = QPushButton("Modificar")
         self.delete_button = QPushButton("Eliminar")
         self.clear_button = QPushButton("Limpiar Tabla")
         self.finalize_button = QPushButton("Finalizar Día")
 
         self.add_button.clicked.connect(self.add_temp_record)
-        self.edit_button.clicked.connect(self.edit_temp_record)
         self.delete_button.clicked.connect(self.delete_temp_record)
         self.clear_button.clicked.connect(self.clear_all_records)
         self.finalize_button.clicked.connect(self.save_records)
 
-        # 🎨 Estilos por acción
         self.add_button.setStyleSheet("""
             QPushButton { background-color: #4f46e5; color: white; border-radius: 10px; padding: 8px 16px; }
             QPushButton:hover { background-color: #4338ca; }
-        """)
-        self.edit_button.setStyleSheet("""
-            QPushButton { background-color: #c7d2fe; color: #1e3a8a; border-radius: 10px; padding: 8px 16px; }
-            QPushButton:hover { background-color: #a5b4fc; }
         """)
         self.delete_button.setStyleSheet("""
             QPushButton { background-color: #ef4444; color: white; border-radius: 10px; padding: 8px 16px; }
             QPushButton:hover { background-color: #dc2626; }
         """)
         self.clear_button.setStyleSheet("""
-            QPushButton { background-color: #f59e0b; color: #white; border-radius: 10px; padding: 8px 16px; }
+            QPushButton { background-color: #f59e0b; color: white; border-radius: 10px; padding: 8px 16px; }
             QPushButton:hover { background-color: #d97706; }
         """)
         self.finalize_button.setStyleSheet("""
@@ -131,7 +164,6 @@ class RegistroView(QWidget):
         """)
 
         button_layout.addWidget(self.add_button)
-        button_layout.addWidget(self.edit_button)
         button_layout.addWidget(self.delete_button)
         button_layout.addWidget(self.clear_button)
         button_layout.addStretch()
@@ -148,22 +180,35 @@ class RegistroView(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        
+
         self.table.setStyleSheet("""
             QTableWidget { background-color: #f4f6f9; border: 1px solid #cfd6df; border-radius: 18px; gridline-color: transparent; }
             QHeaderView::section { background-color: #dde3ea; padding: 10px; border: none; font-weight: 600; color: #2f3437; }
             QTableWidget::item:selected { background-color: #dbeafe; color: #1e3a8a; }
         """)
+
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        container_layout.addWidget(self.table)
         self.table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        container_layout.addWidget(self.table)
+
         container.setLayout(container_layout)
         main_layout.addWidget(container)
         self.setLayout(main_layout)
 
+        # 🔥 conexión del filtro
+        self.alumno_input.textChanged.connect(self.filter_students)
+
         # Cargar datos iniciales
         self.refresh_all()
 
+    def filter_students(self):
+        text = self.alumno_input.text().lower()
+        self.alumno_list.clear()
+
+        for student in self.all_students:
+            if text in student.lower():
+                self.alumno_list.addItem(student)
     # ==========================
     # CARDS
     # ==========================
@@ -190,11 +235,14 @@ class RegistroView(QWidget):
     # ==========================
     def refresh_students(self):
         students = StudentService.list_students()
-        # Mostrar: "ID - Nombre"
-        student_list = [f"{s[0]} - {s[1]}" for s in students]
 
-        self.setup_searchable_combobox(self.alumno_combo, student_list)
+        # Guardamos lista base para filtro
+        self.all_students = [f"{s[0]} - {s[1]}" for s in students]
 
+        # Llenamos la lista visual
+        self.alumno_list.clear()
+        for s in self.all_students:
+            self.alumno_list.addItem(s)
     def showEvent(self, event):
         super().showEvent(event)
         self.refresh_students()
@@ -235,20 +283,28 @@ class RegistroView(QWidget):
     # CRUD TEMPORAL
     # ==========================
     def add_temp_record(self):
-        alumno = self.alumno_combo.currentText()
+        selected_items = self.alumno_list.selectedItems()
+
+        if not selected_items:
+            QMessageBox.warning(self, "Atención", "Selecciona al menos un alumno.")
+            return
+
         actividad = self.actividad_combo.currentText()
         horas = self.horas_spin.value()
 
-        # Buscamos si ya existe un registro con mismo alumno y actividad
-        for i, record in enumerate(self.temp_records):
-            if record[0] == alumno and record[1] == actividad:
-                # Si existe, sumamos las horas
-                self.temp_records[i] = (alumno, actividad, record[2] + horas)
-                self.refresh_all()
-                return
+        for item in selected_items:
+            alumno = item.text()
 
-        # Si no existe, agregamos nuevo registro
-        self.temp_records.append((alumno, actividad, horas))
+            # Buscar si ya existe ese alumno con esa actividad
+            for i, record in enumerate(self.temp_records):
+                if record[0] == alumno and record[1] == actividad:
+                    # Si existe, sumamos horas
+                    self.temp_records[i] = (alumno, actividad, record[2] + horas)
+                    break
+            else:
+                # Si no existe, lo agregamos
+                self.temp_records.append((alumno, actividad, horas))
+
         self.refresh_all()
 
     def setup_searchable_combobox(self, combo, items):
@@ -360,7 +416,15 @@ class RegistroView(QWidget):
                     return
 
                 cursor = connection.cursor()
-
+                confirm = QMessageBox.question(
+                    self,
+                    "Confirmar acción",
+                    "¿Estás seguro de finalizar el día y guardar todos los registros?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                if confirm != QMessageBox.Yes:
+                    return
+    
                 for alumno_texto, actividad_texto, horas in self.temp_records:
 
                     # Extraer valores desde "ID - Nombre"
